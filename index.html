@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GifFusion</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        header {
+            background-color: #4caf50; /* Green */
+            color: white;
+            padding: 10px 0;
+        }
+        main {
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        input[type="file"] {
+            margin: 20px 0;
+        }
+        #preview {
+            margin: 20px 0;
+        }
+        button {
+            background-color: #4caf50; /* Green */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #388e3c; /* Darker green */
+        }
+        .output {
+            margin-top: 20px;
+        }
+        #loading {
+            display: none;
+            font-size: 18px;
+            color: #4caf50; /* Green */
+        }
+        #downloadLink {
+            display: none;
+            margin-top: 20px;
+        }
+        #downloadLink button {
+            background-color: #4caf50; /* Green */
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #downloadLink button:hover {
+            background-color: #388e3c;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>GifFusion</h1>
+    </header>
+    <main>
+        <div class="container">
+            <h2>Upload Your Images</h2>
+            <input type="file" id="imageInput" accept="image/*" multiple>
+            <div id="preview"></div>
+            <button id="convertButton">Convert to GIF</button>
+            <div id="loading">Creating GIF...</div>
+            <div class="output">
+                <h3>Output GIF Preview</h3>
+                <div id="outputGIF"></div>
+            </div>
+            <div id="downloadLink">
+                <a href="#" id="downloadAnchor" download="output.gif">
+                    <button>Save GIF</button>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const preview = document.getElementById('preview');
+        const convertButton = document.getElementById('convertButton');
+        const outputGIF = document.getElementById('outputGIF');
+        const loading = document.getElementById('loading');
+        const downloadLink = document.getElementById('downloadLink');
+        const downloadAnchor = document.getElementById('downloadAnchor');
+
+        let images = [];
+
+        // Load and preview images
+        imageInput.addEventListener('change', (event) => {
+            preview.innerHTML = '';
+            images = Array.from(event.target.files);
+
+            images.forEach((imageFile, index) => {
+                // Check if the file is an image
+                if (!imageFile.type.startsWith('image/')) {
+                    alert('Only image files are allowed.');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.alt = `Preview Image ${index + 1}`;
+                    img.style.maxWidth = '100px';
+                    img.style.margin = '10px';
+                    preview.appendChild(img);
+                };
+                reader.readAsDataURL(imageFile);
+            });
+        });
+
+        // Convert to GIF
+        convertButton.addEventListener('click', async () => {
+            if (images.length === 0) {
+                alert('Please upload at least one image.');
+                return;
+            }
+
+            // Show loading message
+            loading.style.display = 'block';
+
+            const gif = new GIF({
+                workers: 2,
+                quality: 10
+            });
+
+            // Load each image as an <img> element
+            const loadImage = (file) => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        img.src = e.target.result;
+                        img.onload = () => resolve(img);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            try {
+                const imageElements = await Promise.all(images.map(loadImage));
+
+                // Add each image to the GIF
+                imageElements.forEach((img) => {
+                    gif.addFrame(img, { delay: 500 });
+                });
+
+                gif.on('finished', (blob) => {
+                    // Hide loading message
+                    loading.style.display = 'none';
+
+                    const gifUrl = URL.createObjectURL(blob);
+                    outputGIF.innerHTML = '';
+                    const gifElement = document.createElement('img');
+                    gifElement.src = gifUrl;
+                    gifElement.alt = 'Generated GIF';
+                    gifElement.style.maxWidth = '300px';
+                    outputGIF.appendChild(gifElement);
+
+                    // Show download button
+                    downloadLink.style.display = 'block';
+                    downloadAnchor.href = gifUrl;
+                });
+
+                gif.render();
+            } catch (error) {
+                console.error('Error creating GIF:', error);
+                alert('An error occurred while creating the GIF.');
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
